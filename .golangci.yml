@@ -1,0 +1,23 @@
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (net/http.ResponseWriter).Write
+      - (*encoding/json.Encoder).Encode
+      - (github.com/rabbitmq/amqp091-go.Delivery).Ack
+      - (github.com/rabbitmq/amqp091-go.Delivery).Nack
+      - (*github.com/rabbitmq/amqp091-go.Delivery).Ack
+      - (*github.com/rabbitmq/amqp091-go.Delivery).Nack
+
+issues:
+  exclude-rules:
+    - linters: [errcheck]
+      text: "shutdown"
