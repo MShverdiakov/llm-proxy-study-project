@@ -2,69 +2,85 @@
   "uid": "system-overview",
   "title": "System Overview",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": { "from": "now-1h", "to": "now" },
   "panels": [
     {
       "id": 1,
-      "title": "RPS — All Services",
+      "title": "Goroutines per Service",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "sum(rate(http_requests_total[1m])) by (job)",
+          "expr": "go_goroutines",
           "legendFormat": "{{job}}"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Error Rate (5xx)",
+      "title": "CPU Usage (seconds/s)",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "sum(rate(http_requests_total{http_response_status_code=~\"5..\"}[1m])) by (job)",
-          "legendFormat": "{{job}} 5xx"
+          "expr": "rate(process_cpu_seconds_total[1m])",
+          "legendFormat": "{{job}}"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Request Latency p50/p95/p99",
+      "title": "Resident Memory (MB)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, job))",
-          "legendFormat": "p50 {{job}}"
-        },
-        {
-          "datasource": "Prometheus",
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, job))",
-          "legendFormat": "p95 {{job}}"
-        },
-        {
-          "datasource": "Prometheus",
-          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, job))",
-          "legendFormat": "p99 {{job}}"
+          "expr": "process_resident_memory_bytes / 1024 / 1024",
+          "legendFormat": "{{job}}"
         }
       ]
     },
     {
       "id": 4,
-      "title": "HAProxy Backend Status",
-      "type": "stat",
+      "title": "Network Receive (bytes/s)",
+      "type": "timeseries",
       "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "haproxy_server_status",
-          "legendFormat": "{{proxy}} / {{server}}"
+          "expr": "rate(process_network_receive_bytes_total[1m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Network Transmit (bytes/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(process_network_transmit_bytes_total[1m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Open File Descriptors",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "process_open_fds",
+          "legendFormat": "{{job}}"
         }
       ]
     }

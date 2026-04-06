@@ -2,45 +2,84 @@
   "uid": "billing-auth",
   "title": "Billing & Auth",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": { "from": "now-1h", "to": "now" },
   "panels": [
     {
       "id": 1,
-      "title": "API Key Validation Success Rate",
+      "title": "Goroutines",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "sum(rate(http_requests_total{job=\"auth-service\",http_response_status_code=\"200\"}[1m])) / sum(rate(http_requests_total{job=\"auth-service\"}[1m]))",
-          "legendFormat": "success rate"
+          "expr": "go_goroutines{job=~\"auth-service|billing-service\"}",
+          "legendFormat": "{{job}}"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Deposit/Debit Operations/s",
+      "title": "CPU Usage",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "rate(http_requests_total{job=\"billing-service\",http_route=\"/billing/deposit\"}[1m])",
-          "legendFormat": "deposits/s"
+          "expr": "rate(process_cpu_seconds_total{job=~\"auth-service|billing-service\"}[1m])",
+          "legendFormat": "{{job}}"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Requests to Auth & Billing",
+      "title": "Resident Memory (MB)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 },
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "sum(rate(http_requests_total{job=~\"auth-service|billing-service\"}[1m])) by (job)",
+          "expr": "process_resident_memory_bytes{job=~\"auth-service|billing-service\"} / 1024 / 1024",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Heap Alloc (MB)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "go_memstats_alloc_bytes{job=~\"auth-service|billing-service\"} / 1024 / 1024",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Network Receive (bytes/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(process_network_receive_bytes_total{job=~\"auth-service|billing-service\"}[1m])",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Network Transmit (bytes/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(process_network_transmit_bytes_total{job=~\"auth-service|billing-service\"}[1m])",
           "legendFormat": "{{job}}"
         }
       ]

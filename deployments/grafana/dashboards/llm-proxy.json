@@ -2,64 +2,77 @@
   "uid": "llm-proxy",
   "title": "LLM Proxy",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": { "from": "now-1h", "to": "now" },
   "panels": [
     {
       "id": 1,
-      "title": "Cache Hit/Miss Ratio",
+      "title": "Goroutines (llm-proxy-1 vs llm-proxy-2)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "rate(cache_hits_total[1m])",
-          "legendFormat": "hits"
-        },
-        {
-          "datasource": "Prometheus",
-          "expr": "rate(cache_misses_total[1m])",
-          "legendFormat": "misses"
+          "expr": "go_goroutines{job=~\"llm-proxy.*\"}",
+          "legendFormat": "{{job}}"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Tokens by Model",
+      "title": "CPU Usage — llm-proxy instances",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "sum(rate(llm_tokens_total[1m])) by (model)",
-          "legendFormat": "{{model}}"
+          "expr": "rate(process_cpu_seconds_total{job=~\"llm-proxy.*\"}[1m])",
+          "legendFormat": "{{job}}"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Requests by Provider",
-      "type": "piechart",
+      "title": "Heap Alloc (MB)",
+      "type": "timeseries",
       "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "sum(rate(http_requests_total{job=~\"llm-proxy.*\"}[5m])) by (job)",
+          "expr": "go_memstats_alloc_bytes{job=~\"llm-proxy.*\"} / 1024 / 1024",
           "legendFormat": "{{job}}"
         }
       ]
     },
     {
       "id": 4,
-      "title": "LLM Provider Latency (p95)",
+      "title": "GC Pause Duration (p99)",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~\"llm-proxy.*\"}[1m])) by (le))",
-          "legendFormat": "p95 latency"
+          "expr": "go_gc_duration_seconds{job=~\"llm-proxy.*\",quantile=\"1\"}",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Network In/Out (bytes/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(process_network_receive_bytes_total{job=~\"llm-proxy.*\"}[1m])",
+          "legendFormat": "rx {{job}}"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(process_network_transmit_bytes_total{job=~\"llm-proxy.*\"}[1m])",
+          "legendFormat": "tx {{job}}"
         }
       ]
     }
