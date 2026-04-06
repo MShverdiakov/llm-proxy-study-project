@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'llm-proxy-1'
+    static_configs:
+      - targets: ['llm-proxy-1:8000']
+    metrics_path: /metrics
+
+  - job_name: 'llm-proxy-2'
+    static_configs:
+      - targets: ['llm-proxy-2:8000']
+    metrics_path: /metrics
+
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8001']
+    metrics_path: /metrics
+
+  - job_name: 'billing-service'
+    static_configs:
+      - targets: ['billing-service:8002']
+    metrics_path: /metrics
+
+  - job_name: 'haproxy'
+    static_configs:
+      - targets: ['haproxy-exporter:9101']
+
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8889']

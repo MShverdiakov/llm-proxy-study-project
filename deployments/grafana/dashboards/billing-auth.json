@@ -1,0 +1,49 @@
+{
+  "uid": "billing-auth",
+  "title": "Billing & Auth",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "API Key Validation Success Rate",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(http_requests_total{job=\"auth-service\",http_response_status_code=\"200\"}[1m])) / sum(rate(http_requests_total{job=\"auth-service\"}[1m]))",
+          "legendFormat": "success rate"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Deposit/Debit Operations/s",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(http_requests_total{job=\"billing-service\",http_route=\"/billing/deposit\"}[1m])",
+          "legendFormat": "deposits/s"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Requests to Auth & Billing",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(http_requests_total{job=~\"auth-service|billing-service\"}[1m])) by (job)",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    }
+  ]
+}

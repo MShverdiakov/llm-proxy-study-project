@@ -1,0 +1,220 @@
+version: "3.8"
+
+x-llm-proxy-env: &llm-proxy-env
+  PORT: "8000"
+  REDIS_URL: redis://redis:6379
+  RABBITMQ_URL: amqp://llm:llm@rabbitmq:5672/
+  AUTH_SERVICE_URL: http://auth-service:8001
+  BILLING_SERVICE_URL: http://billing-service:8002
+  LLM_PROVIDER: mock
+  CACHE_TTL: "300"
+  OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+  SERVICE_VERSION: "1.0.0"
+
+services:
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: llm
+      POSTGRES_PASSWORD: llm
+      POSTGRES_DB: llm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: llm
+      RABBITMQ_DEFAULT_PASS: llm
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.97.0
+    command: ["--config=/etc/otel-collector/config.yaml"]
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otel-collector/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    depends_on:
+      - jaeger
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  # ── Application Services ────────────────────────────────────────────────────
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: deployments/auth-service/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      PORT: "8001"
+      DB_URL: postgres://llm:llm@postgres:5432/llm
+      JWT_SECRET: supersecretjwt
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+      SERVICE_VERSION: "1.0.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  billing-service:
+    build:
+      context: ..
+      dockerfile: deployments/billing-service/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      PORT: "8002"
+      DB_URL: postgres://llm:llm@postgres:5432/llm
+      RABBITMQ_URL: amqp://llm:llm@rabbitmq:5672/
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+      SERVICE_VERSION: "1.0.0"
+      PRICE_GPT4: "0.03"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8002/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  llm-proxy-1:
+    build:
+      context: ..
+      dockerfile: deployments/llm-proxy/Dockerfile
+    environment:
+      <<: *llm-proxy-env
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  llm-proxy-2:
+    build:
+      context: ..
+      dockerfile: deployments/llm-proxy/Dockerfile
+    environment:
+      <<: *llm-proxy-env
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  haproxy:
+    image: haproxy:2.9-alpine
+    volumes:
+      - ./haproxy/active-active.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "8080:8080"
+      - "8404:8404"
+    depends_on:
+      llm-proxy-1:
+        condition: service_healthy
+      llm-proxy-2:
+        condition: service_healthy
+
+  haproxy-exporter:
+    image: prom/haproxy-exporter:v0.15.0
+    command:
+      - "--haproxy.scrape-uri=http://haproxy:8404/stats;csv"
+    ports:
+      - "9101:9101"
+    depends_on:
+      - haproxy
+
+volumes:
+  pgdata:
+  redisdata:
+  grafana-storage:
