@@ -103,7 +103,7 @@ type openAIResponse struct {
 func (p *OpenAIProvider) Complete(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
 	msgs := make([]openAIMessage, len(req.Messages))
 	for i, m := range req.Messages {
-		msgs[i] = openAIMessage{Role: m.Role, Content: m.Content}
+		msgs[i] = openAIMessage(m)
 	}
 	body, _ := json.Marshal(openAIRequest{Model: req.Model, Messages: msgs})
 

@@ -30,7 +30,7 @@ func main() {
 	if err != nil {
 		logger.Warn("telemetry init failed", "err", err)
 	} else {
-		defer shutdown(ctx)
+		defer func() { _ = shutdown(ctx) }()
 	}
 
 	pool, err := pgxpool.New(ctx, dbURL)
